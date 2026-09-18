@@ -3,28 +3,38 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Hello, World!</title>
-<meta name="description" content="示範在 Vercel 上部署的靜態首頁">
+<title>在 Vercel 上部署 — 簡報目錄</title>
+<meta name="description" content="從零到上線：靜態網站、Serverless API、Postgres 資料庫，以及過程中踩到的四個坑">
 <style>
   :root {
     --bg: #0b1020;
-    --bg-glow: #1b2a5e;
+    --bg-2: #141c38;
+    --glow: #1b2a5e;
     --fg: #f2f5ff;
     --muted: #9aa8cc;
+    --faint: #6b7a9e;
     --accent: #6ea8ff;
-    --card: rgba(255, 255, 255, 0.06);
-    --border: rgba(255, 255, 255, 0.12);
+    --accent-2: #7ef0c0;
+    --danger: #ff8f8f;
+    --card: rgba(255, 255, 255, 0.055);
+    --border: rgba(255, 255, 255, 0.13);
+    --shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
   }
 
   @media (prefers-color-scheme: light) {
     :root {
-      --bg: #f5f7fc;
-      --bg-glow: #d8e4ff;
-      --fg: #111a33;
-      --muted: #5b6785;
+      --bg: #f4f7fd;
+      --bg-2: #e6edfb;
+      --glow: #d3e1ff;
+      --fg: #101a33;
+      --muted: #556282;
+      --faint: #7b87a3;
       --accent: #2563eb;
-      --card: rgba(255, 255, 255, 0.75);
-      --border: rgba(17, 26, 51, 0.1);
+      --accent-2: #0b8f68;
+      --danger: #c0392b;
+      --card: rgba(255, 255, 255, 0.8);
+      --border: rgba(16, 26, 51, 0.11);
+      --shadow: 0 20px 50px rgba(16, 26, 51, 0.1);
     }
   }
 
@@ -33,121 +43,198 @@
   body {
     margin: 0;
     min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    background: radial-gradient(circle at 20% 15%, var(--bg-glow), transparent 55%),
-                radial-gradient(circle at 80% 85%, var(--bg-glow), transparent 50%),
-                var(--bg);
+    padding: clamp(32px, 7vw, 88px) clamp(20px, 5vw, 48px) clamp(48px, 8vh, 96px);
+    background: radial-gradient(ellipse at 15% 0%, var(--glow), transparent 55%),
+                radial-gradient(ellipse at 85% 100%, var(--glow), transparent 50%),
+                linear-gradient(160deg, var(--bg), var(--bg-2));
+    background-attachment: fixed;
     color: var(--fg);
     font-family: "Segoe UI", system-ui, -apple-system, "PingFang TC",
                  "Noto Sans TC", "Microsoft JhengHei", sans-serif;
-    text-align: center;
+    line-height: 1.65;
   }
 
-  main {
-    max-width: 560px;
-    padding: 48px 32px;
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    background: var(--card);
-    backdrop-filter: blur(12px);
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
-    animation: rise 0.6s ease-out both;
-  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
 
-  @keyframes rise {
-    from { opacity: 0; transform: translateY(16px); }
-    to   { opacity: 1; transform: none; }
-  }
+  header { margin-bottom: clamp(32px, 6vh, 60px); }
 
-  .wave {
-    font-size: 56px;
-    line-height: 1;
-    display: inline-block;
-    transform-origin: 70% 70%;
-    animation: wave 2.4s ease-in-out infinite;
-  }
-
-  @keyframes wave {
-    0%, 60%, 100% { transform: rotate(0deg); }
-    10%, 30% { transform: rotate(14deg); }
-    20%, 40% { transform: rotate(-8deg); }
+  .kicker {
+    font-size: clamp(12px, 1.5vw, 14px);
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
   }
 
   h1 {
-    margin: 20px 0 8px;
-    font-size: clamp(32px, 7vw, 48px);
-    letter-spacing: -0.02em;
+    font-size: clamp(32px, 6vw, 58px);
+    line-height: 1.12;
+    letter-spacing: -0.025em;
+    margin: 0 0 16px;
   }
 
-  h1 .accent { color: var(--accent); }
-
-  p {
-    margin: 0 0 24px;
+  .lede {
+    font-size: clamp(16px, 2vw, 20px);
     color: var(--muted);
-    font-size: 17px;
-    line-height: 1.7;
+    margin: 0 0 clamp(24px, 4vh, 36px);
+    max-width: 60ch;
   }
 
-  button {
-    font: inherit;
-    font-weight: 600;
-    color: #fff;
-    background: var(--accent);
-    border: none;
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+
+  .start {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 13px 26px;
     border-radius: 999px;
-    padding: 12px 28px;
-    cursor: pointer;
+    background: var(--accent);
+    color: #fff;
+    font-size: clamp(15px, 1.7vw, 17px);
+    font-weight: 600;
+    text-decoration: none;
     transition: transform 0.15s ease, filter 0.15s ease;
   }
 
-  button:hover { transform: translateY(-2px); filter: brightness(1.08); }
-  button:active { transform: none; }
+  .start:hover { transform: translateY(-2px); filter: brightness(1.08); }
 
-  footer {
-    margin-top: 28px;
-    font-size: 14px;
-    color: var(--muted);
+  .meta { font-size: 14px; color: var(--faint); }
+
+  h2 {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin: clamp(28px, 5vh, 44px) 0 14px;
+    font-size: clamp(13px, 1.5vw, 15px);
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--faint);
   }
 
+  h2::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .menu {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: clamp(10px, 1.6vw, 14px);
+  }
+
+  .menu a {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    height: 100%;
+    padding: 16px 18px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--card);
+    color: inherit;
+    text-decoration: none;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+  }
+
+  .menu a:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+  }
+
+  .menu .n {
+    flex: none;
+    width: 30px; height: 30px;
+    display: grid; place-items: center;
+    border-radius: 9px;
+    border: 1px solid var(--border);
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .menu a > span:last-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .menu .t { display: block; font-size: clamp(15px, 1.7vw, 17px); font-weight: 600; letter-spacing: -0.01em; }
+  .menu .d { display: block; font-size: 14px; line-height: 1.5; color: var(--muted); }
+
+  .menu.pitfalls .n { color: var(--danger); }
+  .menu.pitfalls a:hover { border-color: var(--danger); }
+
+  footer {
+    margin-top: clamp(40px, 7vh, 72px);
+    padding-top: 22px;
+    border-top: 1px solid var(--border);
+    font-size: 14px;
+    color: var(--faint);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    justify-content: space-between;
+  }
+
+  footer a { color: var(--muted); }
+
   @media (prefers-reduced-motion: reduce) {
-    .wave, main { animation: none; }
-    button { transition: none; }
+    .start:hover, .menu a:hover { transform: none; }
   }
 </style>
 </head>
 <body>
-  <main>
-    <span class="wave" role="img" aria-label="揮手">👋</span>
-    <h1>Hello, <span class="accent">World</span>!</h1>
-    <p>這是一個部署在 Vercel 上的靜態首頁。<br>純 HTML / CSS / JS，不需要任何建置流程。</p>
-    <button id="greet" type="button">跟我打聲招呼</button>
-    <p id="output" aria-live="polite" style="margin-top:20px;min-height:1.7em;"></p>
-    <footer>Deployed with <strong>Vercel</strong></footer>
-  </main>
+<div class="wrap">
 
-  <script>
-    const greetings = [
-      "Hello, World!",
-      "你好，世界！",
-      "こんにちは、世界！",
-      "안녕하세요, 세계!",
-      "Bonjour, le monde !",
-      "¡Hola, Mundo!",
-      "Hallo, Welt!",
-      "Ciao, mondo!",
-    ];
+  <header>
+    <div class="kicker">簡報目錄</div>
+    <h1>在 Vercel 上<br>部署一個網站</h1>
+    <p class="lede">靜態首頁 → Serverless API → Postgres 資料庫。包含實際踩到的四個坑，以及出問題時怎麼判斷是哪一層壞掉。</p>
+    <div class="actions">
+      <a class="start" href="/slides#1">開始播放 <span aria-hidden="true">→</span></a>
+      <span class="meta">15 張 · 約 10 分鐘</span>
+    </div>
+  </header>
 
-    const button = document.getElementById("greet");
-    const output = document.getElementById("output");
-    let index = 0;
+  <h2>概覽</h2>
+  <ul class="menu">
+    <li><a href="/slides#1"><span class="n">01</span><span><span class="t">封面</span><span class="d">這份簡報涵蓋什麼</span></span></a></li>
+    <li><a href="/slides#2"><span class="n">02</span><span><span class="t">三個階段</span><span class="d">逐層疊加，每層獨立驗證</span></span></a></li>
+  </ul>
 
-    button.addEventListener("click", () => {
-      index = (index + 1) % greetings.length;
-      output.textContent = greetings[index];
-    });
-  </script>
+  <h2>部署步驟</h2>
+  <ul class="menu">
+    <li><a href="/slides#3"><span class="n">03</span><span><span class="t">準備 repo</span><span class="d">一個 index.html 就能部署</span></span></a></li>
+    <li><a href="/slides#4"><span class="n">04</span><span><span class="t">匯入 Vercel</span><span class="d">Framework 選 Other，設定留空</span></span></a></li>
+    <li><a href="/slides#5"><span class="n">05</span><span><span class="t">Git 整合</span><span class="d">Production 與 Preview 的差別</span></span></a></li>
+    <li><a href="/slides#6"><span class="n">06</span><span><span class="t">加上後端</span><span class="d">api/ 目錄，一個檔案一個端點</span></span></a></li>
+    <li><a href="/slides#7"><span class="n">07</span><span><span class="t">接上 Neon Postgres</span><span class="d">Storage 分頁與 Connect Project</span></span></a></li>
+    <li><a href="/slides#8"><span class="n">08</span><span><span class="t">建表與 Redeploy</span><span class="d">環境變數是部署時注入的</span></span></a></li>
+  </ul>
+
+  <h2>踩過的坑</h2>
+  <ul class="menu pitfalls">
+    <li><a href="/slides#9"><span class="n">09</span><span><span class="t">正式站一片空白</span><span class="d">main 上還沒有 index.html</span></span></a></li>
+    <li><a href="/slides#10"><span class="n">10</span><span><span class="t">PR 合併後不會再更新</span><span class="d">後續變更要另開新的 PR</span></span></a></li>
+    <li><a href="/slides#11"><span class="n">11</span><span><span class="t">環境變數名稱對不上</span><span class="d">DATABASE_URL 還是 POSTGRES_URL</span></span></a></li>
+    <li><a href="/slides#12"><span class="n">12</span><span><span class="t">FUNCTION_INVOCATION_FAILED</span><span class="d">模組層級初始化造成的死碼</span></span></a></li>
+  </ul>
+
+  <h2>收尾</h2>
+  <ul class="menu">
+    <li><a href="/slides#13"><span class="n">13</span><span><span class="t">除錯 SOP</span><span class="d">用回傳內容定位問題層級</span></span></a></li>
+    <li><a href="/slides#14"><span class="n">14</span><span><span class="t">Serverless 的邊界</span><span class="d">能做什麼、不能做什麼</span></span></a></li>
+    <li><a href="/slides#15"><span class="n">15</span><span><span class="t">上線前 checklist</span><span class="d">六個檢查項目</span></span></a></li>
+  </ul>
+
+  <footer>
+    <span>Deployed with <strong>Vercel</strong></span>
+    <span><a href="https://github.com/puremars2015/cloud_deploy_on_vercel">原始碼</a></span>
+  </footer>
+
+</div>
 </body>
 </html>
