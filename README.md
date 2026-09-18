@@ -1,46 +1,44 @@
 # cloud_deploy_on_vercel
 
-示範在 vercel 上部署。
+示範在 vercel 上部署。網站本身就是一份講「怎麼部署到 Vercel」的網頁簡報。
 
 ## 內容
 
-- `index.html` — Hello World 風格的首頁，純 HTML / CSS / JS，不需要建置流程。
-- `vercel.json` — Vercel 設定：乾淨網址（`/about` 而非 `/about.html`）與基本安全性標頭。
+```
+├── index.html      → /         簡報目錄：分組列出每一張，點擊直接跳頁
+├── slides.html     → /slides   簡報本體，共 15 張
+└── vercel.json                 乾淨網址與安全性標頭
+```
+
+純 HTML / CSS / JavaScript，零相依套件、零建置流程。
+
+## 簡報操作
+
+| 操作 | 按鍵 |
+|---|---|
+| 翻頁 | `←` `→`、`Space`、`PageUp` / `PageDown` |
+| 跳到頭尾 | `Home` / `End` |
+| 總覽（縮圖跳頁） | `O`，`Esc` 關閉 |
+| 全螢幕 | `F` |
+
+手機可左右滑動翻頁。網址列會帶頁碼（例如 `/slides#12`），可以直接分享到特定某一頁。
+瀏覽器列印時每張投影片各自成頁，可輸出成 PDF。
 
 ## 本機預覽
 
-直接用瀏覽器開啟 `index.html`，或啟動一個簡易伺服器：
-
 ```bash
 python3 -m http.server 3000
-# 瀏覽 http://localhost:3000
+# 目錄頁 http://localhost:3000
+# 簡報   http://localhost:3000/slides.html
 ```
 
-## 部署到 Vercel（Git 整合）
+註：`vercel.json` 的 `cleanUrls` 讓線上網址是 `/slides`，但本機的簡易伺服器沒有這項功能，
+要加上 `.html` 才開得起來。用 `npx vercel dev` 則與線上行為一致。
 
-用 Vercel 的 Git 整合，push 之後就會自動部署，不需要自己跑 CLI。
+## 部署到 Vercel
 
-1. 到 <https://vercel.com/new> 登入（用 GitHub 帳號登入最省事）。
-2. 在 **Import Git Repository** 找到 `puremars2015/cloud_deploy_on_vercel` 按 **Import**。
-   - 沒看到這個 repo 的話，點 **Adjust GitHub App Permissions**，把 Vercel 的存取權限加到這個 repo。
-3. 設定頁面保持預設即可：
-   - **Framework Preset**：`Other`
-   - **Root Directory**：`./`
-   - **Build Command**、**Output Directory**、**Install Command**：全部留空
-     （本專案是純靜態網站，Vercel 會直接服務根目錄）
-4. 按 **Deploy**，約十幾秒後會拿到 `https://<專案名>.vercel.app`。
+1. 到 <https://vercel.com/new> 登入，Import 這個 repo。
+2. Framework Preset 選 `Other`，Build Command 與 Output Directory 留空。
+3. Deploy。
 
-### 之後的流程
-
-- push 到 `main` → 自動部署到正式站（Production）。
-- 開 PR 或 push 到其他分支 → 自動產生 Preview 部署，Vercel bot 會把預覽網址留言在 PR 上。
-
-### 自訂網域（選用）
-
-專案頁 → **Settings** → **Domains** → 輸入網域 → 依畫面指示在你的 DNS 服務商加上
-`A` 或 `CNAME` 紀錄，驗證通過後 Vercel 會自動簽發 HTTPS 憑證。
-
-### 環境變數（選用）
-
-專案頁 → **Settings** → **Environment Variables**，可分別設定 Production / Preview /
-Development。純靜態頁面用不到，未來加上 API Routes 或 Serverless Function 時才需要。
+之後 push 到 `main` 會自動部署到正式站，開 PR 會產生 Preview 部署。

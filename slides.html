@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>在 Vercel 上部署</title>
+<meta name="description" content="從零到上線：靜態網站、Serverless API、Postgres 資料庫，以及過程中踩到的四個坑">
+<style>
+  :root {
+    --bg: #0b1020;
+    --bg-2: #141c38;
+    --glow: #1b2a5e;
+    --fg: #f2f5ff;
+    --muted: #9aa8cc;
+    --faint: #6b7a9e;
+    --accent: #6ea8ff;
+    --accent-2: #7ef0c0;
+    --danger: #ff8f8f;
+    --warn: #ffd479;
+    --card: rgba(255, 255, 255, 0.055);
+    --card-2: rgba(255, 255, 255, 0.03);
+    --border: rgba(255, 255, 255, 0.13);
+    --code-bg: rgba(0, 0, 0, 0.32);
+    --shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f4f7fd;
+      --bg-2: #e6edfb;
+      --glow: #d3e1ff;
+      --fg: #101a33;
+      --muted: #55628270;
+      --muted: #556282;
+      --faint: #7b87a3;
+      --accent: #2563eb;
+      --accent-2: #0b8f68;
+      --danger: #c0392b;
+      --warn: #a06b00;
+      --card: rgba(255, 255, 255, 0.8);
+      --card-2: rgba(255, 255, 255, 0.55);
+      --border: rgba(16, 26, 51, 0.11);
+      --code-bg: rgba(16, 26, 51, 0.055);
+      --shadow: 0 20px 50px rgba(16, 26, 51, 0.12);
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    background: radial-gradient(ellipse at 15% 0%, var(--glow), transparent 55%),
+                radial-gradient(ellipse at 85% 100%, var(--glow), transparent 50%),
+                linear-gradient(160deg, var(--bg), var(--bg-2));
+    background-attachment: fixed;
+    color: var(--fg);
+    font-family: "Segoe UI", system-ui, -apple-system, "PingFang TC",
+                 "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    line-height: 1.65;
+    overflow: hidden;
+  }
+
+  code, pre, .mono {
+    font-family: "SF Mono", ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+  }
+
+  /* ---------- 投影片框架 ---------- */
+
+  #deck { height: 100dvh; display: grid; }
+
+  .slide {
+    grid-area: 1 / 1;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    padding: clamp(28px, 5vw, 72px) clamp(20px, 6vw, 96px) clamp(72px, 9vh, 104px);
+    overflow-y: auto;
+    animation: fade 0.35s ease both;
+  }
+
+  .slide.active { display: flex; }
+
+  @keyframes fade {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  .kicker {
+    font-size: clamp(12px, 1.5vw, 14px);
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+
+  h1 {
+    font-size: clamp(30px, 6.4vw, 66px);
+    line-height: 1.12;
+    letter-spacing: -0.025em;
+    margin: 0 0 18px;
+  }
+
+  h2 {
+    font-size: clamp(23px, 3.7vw, 40px);
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    margin: 0 0 6px;
+  }
+
+  .sub {
+    font-size: clamp(15px, 1.9vw, 20px);
+    color: var(--muted);
+    margin: 0 0 clamp(18px, 3vh, 34px);
+    max-width: 62ch;
+  }
+
+  .slide > :last-child { margin-bottom: 0; }
+
+  /* ---------- 元件 ---------- */
+
+  .grid { display: grid; gap: clamp(10px, 1.6vw, 18px); }
+  .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+  @media (max-width: 760px) {
+    .g2, .g3 { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    padding: clamp(14px, 2vw, 22px);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--card);
+    font-size: clamp(14px, 1.6vw, 17px);
+  }
+
+  .card h3 {
+    margin: 0 0 6px;
+    font-size: clamp(15px, 1.8vw, 19px);
+    letter-spacing: -0.01em;
+  }
+
+  .card p { margin: 0; color: var(--muted); }
+
+  .card .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px; height: 26px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  ol.steps, ul.bullets { margin: 0; padding: 0; list-style: none; }
+
+  ol.steps { counter-reset: s; display: grid; gap: clamp(9px, 1.4vh, 15px); }
+
+  ol.steps > li {
+    counter-increment: s;
+    position: relative;
+    padding: 2px 0 2px 46px;
+    font-size: clamp(14px, 1.75vw, 19px);
+  }
+
+  ol.steps > li::before {
+    content: counter(s);
+    position: absolute;
+    left: 0; top: 2px;
+    width: 30px; height: 30px;
+    display: grid; place-items: center;
+    border-radius: 9px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  ul.bullets { display: grid; gap: clamp(8px, 1.2vh, 13px); }
+
+  ul.bullets > li {
+    position: relative;
+    padding-left: 26px;
+    font-size: clamp(14px, 1.7vw, 18px);
+  }
+
+  ul.bullets > li::before {
+    content: "";
+    position: absolute;
+    left: 6px; top: 0.72em;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  ul.bullets.check > li::before,
+  ul.bullets.cross > li::before {
+    content: "✓";
+    left: 0; top: 0;
+    width: auto; height: auto;
+    border-radius: 0;
+    background: none;
+    color: var(--accent-2);
+    font-weight: 700;
+  }
+
+  ul.bullets.cross > li::before { content: "✕"; color: var(--danger); }
+
+  .muted { color: var(--muted); }
+  .faint { color: var(--faint); }
+  .hl { color: var(--accent); font-weight: 600; }
+  .good { color: var(--accent-2); font-weight: 600; }
+  .bad { color: var(--danger); font-weight: 600; }
+
+  code.inline {
+    padding: 0.13em 0.42em;
+    border-radius: 6px;
+    background: var(--code-bg);
+    font-size: 0.9em;
+    overflow-wrap: anywhere;
+  }
+
+  pre {
+    margin: 0;
+    padding: clamp(12px, 1.6vw, 18px);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--code-bg);
+    font-size: clamp(11.5px, 1.32vw, 15px);
+    line-height: 1.6;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  pre .c { color: var(--faint); }
+  pre .k { color: var(--accent); }
+  pre .s { color: var(--accent-2); }
+  pre .x { color: var(--danger); }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: clamp(11px, 1.25vw, 13px);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  .tag.bad  { background: rgba(255, 143, 143, 0.16); color: var(--danger); }
+  .tag.good { background: rgba(126, 240, 192, 0.16); color: var(--accent-2); }
+
+  table { width: 100%; border-collapse: collapse; font-size: clamp(13px, 1.5vw, 17px); }
+  th, td { padding: clamp(7px, 1vw, 12px) 10px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--faint); font-size: 0.86em; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+  td:first-child { white-space: nowrap; }
+
+  /* 流程圖 */
+  .flow { display: flex; align-items: stretch; gap: 10px; flex-wrap: wrap; }
+
+  .flow .node {
+    flex: 1 1 150px;
+    padding: clamp(12px, 1.7vw, 18px);
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    background: var(--card);
+    text-align: center;
+  }
+
+  .flow .node .t { font-weight: 700; font-size: clamp(14px, 1.7vw, 18px); }
+  .flow .node .d { color: var(--muted); font-size: clamp(12px, 1.4vw, 15px); }
+  .flow .arrow { display: grid; place-items: center; color: var(--faint); font-size: 22px; }
+
+  @media (max-width: 760px) {
+    .flow { flex-direction: column; }
+    .flow .arrow { transform: rotate(90deg); }
+  }
+
+  .callout {
+    padding: clamp(13px, 1.8vw, 20px);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--warn);
+    border-radius: 12px;
+    background: var(--card-2);
+    font-size: clamp(13.5px, 1.6vw, 17px);
+  }
+
+  .callout.err { border-left-color: var(--danger); }
+  .callout.ok  { border-left-color: var(--accent-2); }
+  .callout b { color: var(--fg); }
+
+  /* ---------- 導覽列 ---------- */
+
+  #bar {
+    position: fixed;
+    left: 0; right: 0; top: 0;
+    height: 3px;
+    background: rgba(127, 127, 127, 0.16);
+    z-index: 30;
+  }
+
+  #bar > i {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    transition: width 0.3s ease;
+  }
+
+  #nav {
+    position: fixed;
+    right: clamp(14px, 3vw, 30px);
+    bottom: clamp(14px, 3vh, 26px);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 30;
+  }
+
+  #nav button {
+    width: 38px; height: 38px;
+    display: grid; place-items: center;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--card);
+    color: var(--fg);
+    font-size: 15px;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: filter 0.15s ease, opacity 0.15s ease;
+  }
+
+  #nav button:hover:not(:disabled) { filter: brightness(1.35); }
+  #nav button:disabled { opacity: 0.32; cursor: default; }
+
+  #count {
+    min-width: 62px;
+    text-align: center;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+  }
+
+  #hint {
+    position: fixed;
+    left: clamp(14px, 3vw, 30px);
+    bottom: clamp(14px, 3vh, 26px);
+    font-size: 12.5px;
+    color: var(--faint);
+    z-index: 30;
+  }
+
+  #hint kbd {
+    padding: 1px 6px;
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    background: var(--card);
+    font-family: inherit;
+    font-size: 11.5px;
+  }
+
+  @media (max-width: 700px) { #hint { display: none; } }
+
+  /* ---------- 總覽 ---------- */
+
+  #overview {
+    position: fixed;
+    inset: 0;
+    display: none;
+    padding: clamp(16px, 4vw, 40px);
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(14px);
+    overflow-y: auto;
+    z-index: 40;
+  }
+
+  #overview.on { display: block; }
+
+  #overview h4 {
+    margin: 0 0 16px;
+    font-size: 14px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+
+  #thumbs {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 12px;
+  }
+
+  #thumbs button {
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--card);
+    color: var(--fg);
+    font: inherit;
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+    transition: filter 0.15s ease;
+  }
+
+  #thumbs button:hover { filter: brightness(1.3); }
+  #thumbs button.now { outline: 2px solid var(--accent); outline-offset: 1px; }
+  #thumbs .n { display: block; font-size: 11.5px; color: var(--faint); margin-bottom: 3px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .slide { animation: none; }
+    #bar > i { transition: none; }
+  }
+
+  /* ---------- 列印 ---------- */
+
+  @media print {
+    body { overflow: visible; background: #fff; color: #000; }
+    #bar, #nav, #hint, #overview { display: none !important; }
+    #deck { display: block; height: auto; }
+    .slide { display: flex !important; height: 100vh; page-break-after: always; animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="bar"><i></i></div>
+
+<div id="deck">
+
+  <!-- 1 -->
+  <section class="slide" data-title="封面">
+    <div class="kicker">從零到上線</div>
+    <h1>在 Vercel 上<br>部署一個網站</h1>
+    <p class="sub">靜態首頁 → Serverless API → Postgres 資料庫。<br>包含實際踩到的四個坑，以及怎麼判斷問題出在哪一層。</p>
+    <div class="flow" style="max-width:760px">
+      <div class="node"><div class="t">GitHub</div><div class="d">程式碼</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="t">Vercel</div><div class="d">自動部署</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="t">Neon</div><div class="d">Postgres</div></div>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section class="slide" data-title="三個階段">
+    <div class="kicker">全貌</div>
+    <h2>三個階段，逐層加上去</h2>
+    <p class="sub">每一層都能獨立驗證。先確認前一層會動，再往上疊。</p>
+    <div class="grid g3">
+      <div class="card">
+        <span class="num">1</span>
+        <h3>靜態網站</h3>
+        <p>一個 <code class="inline">index.html</code>。不用建置流程，Vercel 直接服務根目錄。</p>
+      </div>
+      <div class="card">
+        <span class="num">2</span>
+        <h3>Serverless API</h3>
+        <p><code class="inline">api/</code> 目錄下每個檔案就是一個端點，自動編譯成 function。</p>
+      </div>
+      <div class="card">
+        <span class="num">3</span>
+        <h3>資料庫</h3>
+        <p>Neon Postgres，透過 Marketplace 連結，連線字串自動注入環境變數。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section class="slide" data-title="Step 1 準備 repo">
+    <div class="kicker">Step 1</div>
+    <h2>準備 repo</h2>
+    <p class="sub">最小可部署單位就是一個 HTML 檔。沒有框架、沒有 npm、沒有建置。</p>
+    <div class="grid g2">
+      <pre><span class="c"># 專案根目錄</span>
+.
+├── index.html      <span class="c">→ /</span>
+└── vercel.json     <span class="c">選用：網址與標頭設定</span></pre>
+      <div>
+        <ul class="bullets">
+          <li><code class="inline">index.html</code> 必須在<span class="hl">根目錄</span>，Vercel 找不到就給你 404</li>
+          <li><code class="inline">vercel.json</code> 可設乾淨網址與安全性標頭</li>
+          <li>這個階段完全不需要 <code class="inline">package.json</code></li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout ok" style="margin-top:clamp(14px,2.4vh,24px)">
+      <b>驗證方式</b>　本機跑 <code class="inline">python3 -m http.server 3000</code>，瀏覽器開 localhost:3000 看得到就過關。
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section class="slide" data-title="Step 2 匯入 Vercel">
+    <div class="kicker">Step 2</div>
+    <h2>匯入到 Vercel</h2>
+    <p class="sub">全程在網頁上完成，不需要安裝 CLI。</p>
+    <ol class="steps">
+      <li>開 <code class="inline">vercel.com/new</code>，用 GitHub 帳號登入</li>
+      <li>在 <span class="hl">Import Git Repository</span> 找到你的 repo，按 Import</li>
+      <li>清單裡沒有？點 <span class="hl">Adjust GitHub App Permissions</span> 開放該 repo 的存取權</li>
+      <li>Framework Preset 選 <code class="inline">Other</code>，Build Command 與 Output Directory <span class="hl">全部留空</span></li>
+      <li>按 Deploy，十幾秒後拿到 <code class="inline">&lt;專案名&gt;.vercel.app</code></li>
+    </ol>
+  </section>
+
+  <!-- 5 -->
+  <section class="slide" data-title="Step 3 Git 整合">
+    <div class="kicker">Step 3</div>
+    <h2>Git 整合怎麼運作</h2>
+    <p class="sub">接好之後就不用再手動部署，push 即上線。</p>
+    <div class="grid g2">
+      <div class="card">
+        <h3><span class="tag good">Production</span></h3>
+        <p style="margin-top:8px">push 到 <code class="inline">main</code> → 自動部署到正式網域。</p>
+      </div>
+      <div class="card">
+        <h3><span class="tag good">Preview</span></h3>
+        <p style="margin-top:8px">開 PR 或 push 其他分支 → 產生獨立預覽網址，bot 會留言在 PR 上。</p>
+      </div>
+    </div>
+    <div class="callout" style="margin-top:clamp(14px,2.4vh,24px)">
+      <b>先看 Preview 再合併</b>　預覽環境跟正式環境同一套設定，能驗證的東西完全一樣，但不會影響線上。
+    </div>
+  </section>
+
+  <!-- 6 -->
+  <section class="slide" data-title="Step 4 加上後端">
+    <div class="kicker">Step 4</div>
+    <h2>加上後端 API</h2>
+    <p class="sub">建一個 <code class="inline">api/</code> 目錄，一個檔案就是一個端點。純靜態專案也能直接混用。</p>
+    <div class="grid g2">
+      <pre><span class="c">// api/hello.js  →  /api/hello</span>
+
+<span class="k">export default function</span> handler(req, res) {
+  res.status(<span class="s">200</span>).json({
+    message: <span class="s">"Hello from the backend!"</span>
+  });
+}</pre>
+      <div>
+        <ul class="bullets">
+          <li>支援 <span class="hl">Node.js、Python、Go、Ruby</span></li>
+          <li>前端用 <code class="inline">fetch('/api/hello')</code> 直接打，同網域不用處理 CORS</li>
+          <li>有相依套件就加 <code class="inline">package.json</code>，Vercel 會自動安裝</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 -->
+  <section class="slide" data-title="Step 5 接資料庫">
+    <div class="kicker">Step 5</div>
+    <h2>接上 Neon Postgres</h2>
+    <p class="sub">走 Vercel 內建整合，全程不用自己複製連線字串。</p>
+    <ol class="steps">
+      <li>專案頁 → <span class="hl">Storage</span> 分頁 → <span class="hl">Create Database</span> → 選 Neon</li>
+      <li>方案選 Free，Region 挑離使用者最近的（台灣選 Singapore）</li>
+      <li>建立後選擇要連結的專案，<span class="hl">Production / Preview / Development 三個環境都勾</span></li>
+      <li>按 <span class="hl">Connect</span> —— 這一步做完，<code class="inline">DATABASE_URL</code> 才會注入專案</li>
+    </ol>
+    <div class="callout err" style="margin-top:clamp(14px,2.4vh,24px)">
+      <b>最常卡住的地方</b>　建立資料庫 ≠ 連結到專案。沒按 Connect，環境變數不會出現。
+    </div>
+  </section>
+
+  <!-- 8 -->
+  <section class="slide" data-title="Step 6 建表與 Redeploy">
+    <div class="kicker">Step 6</div>
+    <h2>建立資料表，然後 Redeploy</h2>
+    <div class="grid g2">
+      <div class="card">
+        <h3>建立資料表</h3>
+        <p style="margin:8px 0 0">開好資料庫 <span class="bad">≠</span> 有資料表。到 Neon Console 的 <span class="hl">SQL Editor</span> 執行一次建表語法。</p>
+      </div>
+      <div class="card">
+        <h3>重新部署</h3>
+        <p style="margin:8px 0 0">環境變數是<span class="hl">部署時注入</span>的。設定完之後既有的部署讀不到，要到 Deployments 按 <span class="hl">Redeploy</span>。</p>
+      </div>
+    </div>
+    <pre style="margin-top:clamp(14px,2.4vh,22px)"><span class="k">create table if not exists</span> messages (
+  id         <span class="k">bigint generated always as identity primary key</span>,
+  name       <span class="k">text</span>        <span class="k">not null</span>,
+  body       <span class="k">text</span>        <span class="k">not null</span>,
+  created_at <span class="k">timestamptz</span> <span class="k">not null default</span> now()
+);</pre>
+  </section>
+
+  <!-- 9 -->
+  <section class="slide" data-title="陷阱 1">
+    <div class="kicker">陷阱 ①</div>
+    <h2>正式站一片空白</h2>
+    <p class="sub">部署成功、狀態 Ready，但打開網址是 404。</p>
+    <div class="grid g2">
+      <div class="card">
+        <h3><span class="tag bad">原因</span></h3>
+        <p style="margin-top:8px">Vercel 的 Production Branch 預設是 <code class="inline">main</code>。程式碼還在功能分支上沒合併，<code class="inline">main</code> 的根目錄沒有 <code class="inline">index.html</code>。</p>
+      </div>
+      <div class="card">
+        <h3><span class="tag good">解法</span></h3>
+        <p style="margin-top:8px">合併 PR 進 <code class="inline">main</code>，或先用 PR 的 Preview 網址驗證。<span class="faint">別去改 Production Branch，那只是繞過問題。</span></p>
+      </div>
+    </div>
+    <div class="callout" style="margin-top:clamp(14px,2.4vh,24px)">
+      <b>怎麼判斷</b>　到 Deployments 看最新一筆部署的<span class="hl">分支與 commit</span>，跟你以為上線的東西對不對得起來。
+    </div>
+  </section>
+
+  <!-- 10 -->
+  <section class="slide" data-title="陷阱 2">
+    <div class="kicker">陷阱 ②</div>
+    <h2>已合併的 PR 不會再更新</h2>
+    <p class="sub">PR 合併之後又往同一個分支推 commit，以為 PR 會跟著更新。不會。</p>
+    <div class="flow" style="max-width:840px">
+      <div class="node"><div class="t">PR 合併</div><div class="d">分支內容進 main</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="t">繼續 push</div><div class="d">新 commit 上分支</div></div>
+      <div class="arrow">→</div>
+      <div class="node" style="border-color:var(--danger)"><div class="t bad">PR 不動</div><div class="d">新 commit 不在 main</div></div>
+    </div>
+    <div class="callout err" style="margin-top:clamp(16px,2.6vh,26px)">
+      <b>解法</b>　已合併的 PR 是結束狀態，無法承載新工作。後續變更要<span class="hl">另開一個新的 PR</span>。
+    </div>
+  </section>
+
+  <!-- 11 -->
+  <section class="slide" data-title="陷阱 3">
+    <div class="kicker">陷阱 ③</div>
+    <h2>環境變數名稱對不上</h2>
+    <p class="sub">不同整合、不同版本注入的變數名稱不一樣，程式碼卻只認一個。</p>
+    <div class="grid g2">
+      <pre><span class="c">// 整合可能注入其中任何一個</span>
+DATABASE_URL
+POSTGRES_URL
+DATABASE_URL_UNPOOLED
+POSTGRES_URL_NON_POOLING</pre>
+      <pre><span class="c">// 依序找第一個有值的</span>
+<span class="k">const</span> name = VARS.find(
+  (k) =&gt; process.env[k]
+);</pre>
+    </div>
+    <div class="callout" style="margin-top:clamp(14px,2.4vh,24px)">
+      <b>檢查方式</b>　Settings → Environment Variables，確認<span class="hl">名稱</span>與程式碼讀的完全一致，以及三個環境都有勾。
+    </div>
+  </section>
+
+  <!-- 12 -->
+  <section class="slide" data-title="陷阱 4">
+    <div class="kicker">陷阱 ④</div>
+    <h2>FUNCTION_INVOCATION_FAILED</h2>
+    <p class="sub">最難查的一個：錯誤處理寫好了，卻永遠不會執行。</p>
+    <div class="grid g2">
+      <div>
+        <div class="tag bad" style="margin-bottom:8px">問題</div>
+        <pre><span class="c">// 模組最外層 —— 匯入時就執行</span>
+<span class="k">const</span> sql = neon(process.env.DB_URL);
+
+<span class="k">export default function</span> handler(req, res) {
+  <span class="k">if</span> (!process.env.DB_URL) {
+    <span class="c">// ← 永遠跑不到的死碼</span>
+    <span class="k">return</span> res.status(<span class="s">500</span>).json({ ... });
+  }</pre>
+      </div>
+      <div>
+        <div class="tag good" style="margin-bottom:8px">修正</div>
+        <pre><span class="c">// 第一次用到時才建立，並快取</span>
+<span class="k">function</span> getSql() {
+  <span class="k">if</span> (cached) <span class="k">return</span> cached;
+  <span class="k">if</span> (!url) <span class="k">throw new</span> Error(<span class="s">"缺連線字串"</span>);
+  cached = neon(url);
+  <span class="k">return</span> cached;
+}</pre>
+      </div>
+    </div>
+    <div class="callout err" style="margin-top:clamp(14px,2.2vh,22px)">
+      <b>原理</b>　連線字串缺漏時 <code class="inline">neon()</code> 會拋例外。寫在模組層級，function 在<span class="hl">匯入階段</span>就初始化失敗，handler 根本沒被呼叫，錯誤處理形同不存在。
+    </div>
+  </section>
+
+  <!-- 13 -->
+  <section class="slide" data-title="除錯 SOP">
+    <div class="kicker">除錯</div>
+    <h2>出問題時的判斷順序</h2>
+    <p class="sub">直接打 API 端點，用回傳內容定位是哪一層壞掉。</p>
+    <table>
+      <thead><tr><th>看到什麼</th><th>代表</th><th>去修哪裡</th></tr></thead>
+      <tbody>
+        <tr><td><code class="inline">{"messages":[]}</code></td><td class="good">全線正常</td><td class="muted">只是還沒有資料</td></tr>
+        <tr><td><code class="inline">找不到連線字串</code></td><td>變數沒進到 function</td><td class="muted">Connect Project／Redeploy</td></tr>
+        <tr><td><code class="inline">資料表不存在</code></td><td>連得上但沒建表</td><td class="muted">Neon SQL Editor</td></tr>
+        <tr><td><code class="inline">FUNCTION_INVOCATION_FAILED</code></td><td class="bad">模組載入就崩潰</td><td class="muted">Runtime Logs</td></tr>
+        <tr><td><code class="inline">404</code></td><td>部署裡沒有這支 function</td><td class="muted">確認部署的 commit</td></tr>
+      </tbody>
+    </table>
+    <div class="callout" style="margin-top:clamp(14px,2.4vh,24px)">
+      <b>小技巧</b>　Vercel 錯誤頁的 request ID 中間那段是 <span class="hl">Unix 毫秒時間戳</span>，解出來就知道這筆錯誤發生在你修正之前還是之後。
+    </div>
+  </section>
+
+  <!-- 14 -->
+  <section class="slide" data-title="Serverless 的邊界">
+    <div class="kicker">認識工具</div>
+    <h2>Serverless 的邊界</h2>
+    <p class="sub">一句話總結：API 端點沒問題，常駐服務不行。</p>
+    <div class="grid g2">
+      <div class="card">
+        <h3 class="good">適合</h3>
+        <ul class="bullets check" style="margin-top:10px">
+          <li>REST / JSON API、表單處理</li>
+          <li>藏第三方 API key</li>
+          <li>Webhook 接收端</li>
+          <li>Cron 排程工作</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3 class="bad">不適合</h3>
+        <ul class="bullets cross" style="margin-top:10px">
+          <li>WebSocket server、背景 worker</li>
+          <li>寫入本機檔案系統並期待保留</li>
+          <li>記憶體內狀態跨請求共用</li>
+          <li>長時間批次運算</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 15 -->
+  <section class="slide" data-title="Checklist">
+    <div class="kicker">收尾</div>
+    <h2>上線前 checklist</h2>
+    <ul class="bullets check" style="max-width:70ch">
+      <li><code class="inline">index.html</code> 在<span class="hl">根目錄</span>，且已經在 <code class="inline">main</code> 上</li>
+      <li>Deployments 最新一筆的 commit 就是你要上線的那個</li>
+      <li>資料庫已 <span class="hl">Connect</span> 到專案，三個環境都勾</li>
+      <li>資料表建好了，不只是資料庫建好了</li>
+      <li>環境變數設定完成後<span class="hl">重新部署</span>過</li>
+      <li>初始化程式碼<span class="hl">不在模組最外層</span>，錯誤能被攔截並回傳可讀訊息</li>
+    </ul>
+    <p class="sub" style="margin-top:clamp(20px,3.4vh,34px);color:var(--faint)">
+      每一層都能單獨驗證 —— 遇到問題時，先確認是哪一層，再動手。
+    </p>
+  </section>
+
+</div>
+
+<div id="nav">
+  <button id="prev" type="button" aria-label="上一頁">←</button>
+  <span id="count" class="mono"></span>
+  <button id="next" type="button" aria-label="下一頁">→</button>
+</div>
+
+<div id="hint"><kbd>←</kbd> <kbd>→</kbd> 翻頁　<kbd>O</kbd> 總覽　<kbd>F</kbd> 全螢幕</div>
+
+<div id="overview" role="dialog" aria-label="投影片總覽">
+  <h4>總覽 — 點選跳頁，Esc 關閉</h4>
+  <div id="thumbs"></div>
+</div>
+
+<script>
+(function () {
+  const slides = Array.from(document.querySelectorAll(".slide"));
+  const total = slides.length;
+  const bar = document.querySelector("#bar > i");
+  const count = document.getElementById("count");
+  const prev = document.getElementById("prev");
+  const next = document.getElementById("next");
+  const overview = document.getElementById("overview");
+  const thumbs = document.getElementById("thumbs");
+
+  let current = 0;
+
+  slides.forEach((slide, i) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    const n = document.createElement("span");
+    n.className = "n";
+    n.textContent = String(i + 1).padStart(2, "0");
+    button.append(n, document.createTextNode(slide.dataset.title || `第 ${i + 1} 頁`));
+    button.addEventListener("click", () => { go(i); toggleOverview(false); });
+    thumbs.append(button);
+  });
+
+  const thumbButtons = Array.from(thumbs.children);
+
+  function go(index, updateHash = true) {
+    current = Math.max(0, Math.min(total - 1, index));
+
+    slides.forEach((slide, i) => slide.classList.toggle("active", i === current));
+    thumbButtons.forEach((button, i) => button.classList.toggle("now", i === current));
+
+    bar.style.width = ((current + 1) / total * 100) + "%";
+    count.textContent = `${current + 1} / ${total}`;
+    prev.disabled = current === 0;
+    next.disabled = current === total - 1;
+
+    if (updateHash) {
+      // 用 replaceState 而不是改 location.hash，避免每翻一頁就塞一筆瀏覽紀錄。
+      history.replaceState(null, "", "#" + (current + 1));
+    }
+  }
+
+  function toggleOverview(force) {
+    const show = force ?? !overview.classList.contains("on");
+    overview.classList.toggle("on", show);
+  }
+
+  function fromHash() {
+    const n = parseInt(location.hash.replace("#", ""), 10);
+    return Number.isFinite(n) && n >= 1 && n <= total ? n - 1 : 0;
+  }
+
+  prev.addEventListener("click", () => go(current - 1));
+  next.addEventListener("click", () => go(current + 1));
+  window.addEventListener("hashchange", () => go(fromHash(), false));
+
+  document.addEventListener("keydown", (event) => {
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+    switch (event.key) {
+      case "ArrowRight": case "PageDown": case " ": case "n":
+        event.preventDefault(); go(current + 1); break;
+      case "ArrowLeft": case "PageUp": case "p":
+        event.preventDefault(); go(current - 1); break;
+      case "Home": event.preventDefault(); go(0); break;
+      case "End":  event.preventDefault(); go(total - 1); break;
+      case "o": case "O": toggleOverview(); break;
+      case "Escape": toggleOverview(false); break;
+      case "f": case "F":
+        if (document.fullscreenElement) document.exitFullscreen();
+        else document.documentElement.requestFullscreen?.();
+        break;
+    }
+  });
+
+  // 手機滑動翻頁：只認水平方向明顯大於垂直的手勢，才不會跟捲動打架。
+  let startX = 0, startY = 0;
+
+  document.addEventListener("touchstart", (event) => {
+    startX = event.changedTouches[0].clientX;
+    startY = event.changedTouches[0].clientY;
+  }, { passive: true });
+
+  document.addEventListener("touchend", (event) => {
+    const dx = event.changedTouches[0].clientX - startX;
+    const dy = event.changedTouches[0].clientY - startY;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      go(current + (dx < 0 ? 1 : -1));
+    }
+  }, { passive: true });
+
+  go(fromHash(), false);
+})();
+</script>
+</body>
+</html>
