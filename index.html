@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hello, World!</title>
-<meta name="description" content="示範在 Vercel 上部署的靜態首頁">
+<meta name="description" content="示範在 Vercel 上部署的靜態首頁，搭配 Serverless API 與 Neon Postgres 留言板">
 <style>
   :root {
     --bg: #0b1020;
@@ -12,7 +12,9 @@
     --fg: #f2f5ff;
     --muted: #9aa8cc;
     --accent: #6ea8ff;
+    --danger: #ff8080;
     --card: rgba(255, 255, 255, 0.06);
+    --field: rgba(255, 255, 255, 0.05);
     --border: rgba(255, 255, 255, 0.12);
   }
 
@@ -23,7 +25,9 @@
       --fg: #111a33;
       --muted: #5b6785;
       --accent: #2563eb;
+      --danger: #c0392b;
       --card: rgba(255, 255, 255, 0.75);
+      --field: rgba(255, 255, 255, 0.9);
       --border: rgba(17, 26, 51, 0.1);
     }
   }
@@ -34,21 +38,24 @@
     margin: 0;
     min-height: 100vh;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 24px;
+    gap: 24px;
+    padding: 40px 24px;
     background: radial-gradient(circle at 20% 15%, var(--bg-glow), transparent 55%),
                 radial-gradient(circle at 80% 85%, var(--bg-glow), transparent 50%),
                 var(--bg);
+    background-attachment: fixed;
     color: var(--fg);
     font-family: "Segoe UI", system-ui, -apple-system, "PingFang TC",
                  "Noto Sans TC", "Microsoft JhengHei", sans-serif;
-    text-align: center;
   }
 
-  main {
+  .card {
+    width: 100%;
     max-width: 560px;
-    padding: 48px 32px;
+    padding: 40px 32px;
     border: 1px solid var(--border);
     border-radius: 20px;
     background: var(--card);
@@ -56,6 +63,8 @@
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
     animation: rise 0.6s ease-out both;
   }
+
+  .hero { text-align: center; }
 
   @keyframes rise {
     from { opacity: 0; transform: translateY(16px); }
@@ -84,12 +93,14 @@
 
   h1 .accent { color: var(--accent); }
 
-  p {
-    margin: 0 0 24px;
-    color: var(--muted);
-    font-size: 17px;
-    line-height: 1.7;
+  h2 {
+    margin: 0 0 4px;
+    font-size: 22px;
+    letter-spacing: -0.01em;
   }
+
+  p { margin: 0 0 24px; color: var(--muted); font-size: 17px; line-height: 1.7; }
+  .hint { font-size: 14px; margin-bottom: 20px; }
 
   button {
     font: inherit;
@@ -103,30 +114,81 @@
     transition: transform 0.15s ease, filter 0.15s ease;
   }
 
-  button:hover { transform: translateY(-2px); filter: brightness(1.08); }
-  button:active { transform: none; }
+  button:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.08); }
+  button:active:not(:disabled) { transform: none; }
+  button:disabled { opacity: 0.55; cursor: not-allowed; }
 
-  footer {
-    margin-top: 28px;
-    font-size: 14px;
-    color: var(--muted);
+  form { display: flex; flex-direction: column; gap: 12px; }
+
+  input, textarea {
+    font: inherit;
+    width: 100%;
+    padding: 12px 14px;
+    color: var(--fg);
+    background: var(--field);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    resize: vertical;
   }
 
+  input:focus, textarea:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  form button { align-self: flex-start; }
+
+  .status { min-height: 1.6em; margin: 12px 0 0; font-size: 14px; }
+  .status.error { color: var(--danger); }
+
+  ul { list-style: none; margin: 24px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+
+  li {
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--field);
+  }
+
+  .meta { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 6px; font-size: 13px; }
+  .who { font-weight: 600; }
+  .when { color: var(--muted); white-space: nowrap; }
+  .body { margin: 0; font-size: 15px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+  footer { font-size: 14px; color: var(--muted); }
+
   @media (prefers-reduced-motion: reduce) {
-    .wave, main { animation: none; }
+    .wave, .card { animation: none; }
     button { transition: none; }
   }
 </style>
 </head>
 <body>
-  <main>
+  <main class="card hero">
     <span class="wave" role="img" aria-label="揮手">👋</span>
     <h1>Hello, <span class="accent">World</span>!</h1>
-    <p>這是一個部署在 Vercel 上的靜態首頁。<br>純 HTML / CSS / JS，不需要任何建置流程。</p>
+    <p>這是一個部署在 Vercel 上的網站。<br>首頁是靜態 HTML，留言板走 Serverless Function + Neon Postgres。</p>
     <button id="greet" type="button">跟我打聲招呼</button>
-    <p id="output" aria-live="polite" style="margin-top:20px;min-height:1.7em;"></p>
-    <footer>Deployed with <strong>Vercel</strong></footer>
+    <p id="greeting" aria-live="polite" style="margin-top:20px;min-height:1.7em;"></p>
   </main>
+
+  <section class="card" aria-labelledby="guestbook-title">
+    <h2 id="guestbook-title">留言板</h2>
+    <p class="hint">資料存在 Neon Postgres，重新整理也還在。</p>
+
+    <form id="form">
+      <input id="name" name="name" type="text" maxlength="40" required
+             placeholder="你的名字" autocomplete="nickname">
+      <textarea id="body" name="body" rows="3" maxlength="500" required
+                placeholder="說點什麼⋯⋯"></textarea>
+      <button id="submit" type="submit">送出留言</button>
+    </form>
+
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+    <ul id="list"></ul>
+  </section>
+
+  <footer>Deployed with <strong>Vercel</strong></footer>
 
   <script>
     const greetings = [
@@ -140,14 +202,120 @@
       "Ciao, mondo!",
     ];
 
-    const button = document.getElementById("greet");
-    const output = document.getElementById("output");
-    let index = 0;
+    let greetingIndex = 0;
+    const greetingOutput = document.getElementById("greeting");
 
-    button.addEventListener("click", () => {
-      index = (index + 1) % greetings.length;
-      output.textContent = greetings[index];
+    document.getElementById("greet").addEventListener("click", () => {
+      greetingIndex = (greetingIndex + 1) % greetings.length;
+      greetingOutput.textContent = greetings[greetingIndex];
     });
+
+    const form = document.getElementById("form");
+    const nameInput = document.getElementById("name");
+    const bodyInput = document.getElementById("body");
+    const submitButton = document.getElementById("submit");
+    const status = document.getElementById("status");
+    const list = document.getElementById("list");
+
+    const timeFormatter = new Intl.DateTimeFormat("zh-TW", {
+      dateStyle: "short",
+      timeStyle: "short",
+    });
+
+    function setStatus(text, isError = false) {
+      status.textContent = text;
+      status.classList.toggle("error", isError);
+    }
+
+    function render(messages) {
+      list.replaceChildren();
+
+      if (messages.length === 0) {
+        setStatus("還沒有人留言，你可以當第一個。");
+        return;
+      }
+
+      for (const message of messages) {
+        const item = document.createElement("li");
+
+        const meta = document.createElement("div");
+        meta.className = "meta";
+
+        const who = document.createElement("span");
+        who.className = "who";
+        // 用 textContent 而不是 innerHTML，留言內容不會被當成 HTML 執行。
+        who.textContent = message.name;
+
+        const when = document.createElement("time");
+        when.className = "when";
+        const at = new Date(message.created_at);
+        when.dateTime = at.toISOString();
+        when.textContent = timeFormatter.format(at);
+
+        meta.append(who, when);
+
+        const body = document.createElement("p");
+        body.className = "body";
+        body.textContent = message.body;
+
+        item.append(meta, body);
+        list.append(item);
+      }
+    }
+
+    async function loadMessages() {
+      setStatus("載入中⋯⋯");
+      try {
+        const response = await fetch("/api/messages");
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(data.error || `讀取失敗（HTTP ${response.status}）`);
+        }
+
+        render(data.messages ?? []);
+        if ((data.messages ?? []).length > 0) setStatus("");
+      } catch (error) {
+        setStatus(error.message, true);
+      }
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const name = nameInput.value.trim();
+      const body = bodyInput.value.trim();
+      if (!name || !body) {
+        setStatus("名字和留言都不能空白。", true);
+        return;
+      }
+
+      submitButton.disabled = true;
+      setStatus("送出中⋯⋯");
+
+      try {
+        const response = await fetch("/api/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, body }),
+        });
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(data.error || `送出失敗（HTTP ${response.status}）`);
+        }
+
+        bodyInput.value = "";
+        setStatus("留言成功！");
+        await loadMessages();
+      } catch (error) {
+        setStatus(error.message, true);
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+
+    loadMessages();
   </script>
 </body>
 </html>
