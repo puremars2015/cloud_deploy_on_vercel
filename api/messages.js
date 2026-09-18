@@ -4,16 +4,39 @@ const MAX_NAME_LENGTH = 40;
 const MAX_BODY_LENGTH = 500;
 const LIST_LIMIT = 20;
 
-// neon() 走 HTTP，不需要維護連線池，很適合 serverless 的短生命週期。
-// 模組層級只建立一次，同一個實例的後續請求可以重複使用。
-const sql = neon(process.env.DATABASE_URL);
+// 各家整合注入的變數名稱不一致，依序找第一個有值的。
+const CONNECTION_STRING_VARS = [
+  "DATABASE_URL",
+  "POSTGRES_URL",
+  "DATABASE_URL_UNPOOLED",
+  "POSTGRES_URL_NON_POOLING",
+];
 
-export default async function handler(req, res) {
-  if (!process.env.DATABASE_URL) {
-    return res.status(500).json({ error: "伺服器尚未設定 DATABASE_URL" });
+let cachedSql;
+
+// neon() 在連線字串缺漏時會直接拋例外，所以不能放在模組最外層：
+// 那會讓整個 function 在匯入階段就失敗（FUNCTION_INVOCATION_FAILED），
+// 連錯誤訊息都回不出去。改成第一次用到時才建立，並快取起來重複使用。
+function getSql() {
+  if (cachedSql) return cachedSql;
+
+  const name = CONNECTION_STRING_VARS.find((key) => process.env[key]);
+  if (!name) {
+    const error = new Error(
+      `找不到資料庫連線字串，請在 Vercel 設定 ${CONNECTION_STRING_VARS[0]}`
+    );
+    error.statusCode = 500;
+    throw error;
   }
 
+  cachedSql = neon(process.env[name]);
+  return cachedSql;
+}
+
+export default async function handler(req, res) {
   try {
+    const sql = getSql();
+
     if (req.method === "GET") {
       const rows = await sql`
         select id, name, body, created_at
@@ -61,6 +84,17 @@ export default async function handler(req, res) {
   } catch (error) {
     // 詳細錯誤只留在 Vercel 的 Runtime Logs，不回給前端。
     console.error("[/api/messages]", error);
+
+    // 設定類錯誤（缺連線字串、資料表沒建）直接說明白，才知道要去修什麼。
+    if (error.statusCode === 500 && error.message) {
+      return res.status(500).json({ error: error.message });
+    }
+    if (error.code === "42P01") {
+      return res.status(500).json({
+        error: "messages 資料表不存在，請到 Neon 的 SQL Editor 執行 db/schema.sql",
+      });
+    }
+
     return res.status(500).json({ error: "伺服器發生錯誤，請稍後再試" });
   }
 }
