@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hello, World!</title>
+<meta name="description" content="示範在 Vercel 上部署的靜態首頁">
+<style>
+  :root {
+    --bg: #0b1020;
+    --bg-glow: #1b2a5e;
+    --fg: #f2f5ff;
+    --muted: #9aa8cc;
+    --accent: #6ea8ff;
+    --card: rgba(255, 255, 255, 0.06);
+    --border: rgba(255, 255, 255, 0.12);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f5f7fc;
+      --bg-glow: #d8e4ff;
+      --fg: #111a33;
+      --muted: #5b6785;
+      --accent: #2563eb;
+      --card: rgba(255, 255, 255, 0.75);
+      --border: rgba(17, 26, 51, 0.1);
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: radial-gradient(circle at 20% 15%, var(--bg-glow), transparent 55%),
+                radial-gradient(circle at 80% 85%, var(--bg-glow), transparent 50%),
+                var(--bg);
+    color: var(--fg);
+    font-family: "Segoe UI", system-ui, -apple-system, "PingFang TC",
+                 "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    text-align: center;
+  }
+
+  main {
+    max-width: 560px;
+    padding: 48px 32px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--card);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+    animation: rise 0.6s ease-out both;
+  }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  .wave {
+    font-size: 56px;
+    line-height: 1;
+    display: inline-block;
+    transform-origin: 70% 70%;
+    animation: wave 2.4s ease-in-out infinite;
+  }
+
+  @keyframes wave {
+    0%, 60%, 100% { transform: rotate(0deg); }
+    10%, 30% { transform: rotate(14deg); }
+    20%, 40% { transform: rotate(-8deg); }
+  }
+
+  h1 {
+    margin: 20px 0 8px;
+    font-size: clamp(32px, 7vw, 48px);
+    letter-spacing: -0.02em;
+  }
+
+  h1 .accent { color: var(--accent); }
+
+  p {
+    margin: 0 0 24px;
+    color: var(--muted);
+    font-size: 17px;
+    line-height: 1.7;
+  }
+
+  button {
+    font: inherit;
+    font-weight: 600;
+    color: #fff;
+    background: var(--accent);
+    border: none;
+    border-radius: 999px;
+    padding: 12px 28px;
+    cursor: pointer;
+    transition: transform 0.15s ease, filter 0.15s ease;
+  }
+
+  button:hover { transform: translateY(-2px); filter: brightness(1.08); }
+  button:active { transform: none; }
+
+  footer {
+    margin-top: 28px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wave, main { animation: none; }
+    button { transition: none; }
+  }
+</style>
+</head>
+<body>
+  <main>
+    <span class="wave" role="img" aria-label="揮手">👋</span>
+    <h1>Hello, <span class="accent">World</span>!</h1>
+    <p>這是一個部署在 Vercel 上的靜態首頁。<br>純 HTML / CSS / JS，不需要任何建置流程。</p>
+    <button id="greet" type="button">跟我打聲招呼</button>
+    <p id="output" aria-live="polite" style="margin-top:20px;min-height:1.7em;"></p>
+    <footer>Deployed with <strong>Vercel</strong></footer>
+  </main>
+
+  <script>
+    const greetings = [
+      "Hello, World!",
+      "你好，世界！",
+      "こんにちは、世界！",
+      "안녕하세요, 세계!",
+      "Bonjour, le monde !",
+      "¡Hola, Mundo!",
+      "Hallo, Welt!",
+      "Ciao, mondo!",
+    ];
+
+    const button = document.getElementById("greet");
+    const output = document.getElementById("output");
+    let index = 0;
+
+    button.addEventListener("click", () => {
+      index = (index + 1) % greetings.length;
+      output.textContent = greetings[index];
+    });
+  </script>
+</body>
+</html>
